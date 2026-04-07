@@ -66,14 +66,8 @@ sentiment/
 ├── requirements.txt
 ```
 
-## Limitations
-
-* Performance may drop on sarcastic or ambiguous reviews
-* Mixed sentiment in a single input can affect predictions
-* Model quality depends on dataset balance and preprocessing
-
-## Future Improvements
-
-* Improve robustness with better data preprocessing
-* Tune hyperparameters for higher accuracy
-* Optimize model for faster inference and deployment
+## Author 
+```
+Chirag Sharma 
+MSIT
+```
