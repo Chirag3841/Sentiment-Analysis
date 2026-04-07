@@ -1,41 +1,79 @@
-# Flipkart Review Sentiment Analyzer 
+# Flipkart Review Sentiment Analyzer
 
-A deep learning-based sentiment analysis system fine-tuned on 200k+ Flipkart product reviews.
+This project implements a sentiment analysis system using a fine-tuned DistilBERT model trained on more than 200,000 Flipkart product reviews. The model classifies reviews into three categories: Positive, Neutral, and Negative.
 
-##  Overview
-Classifies product reviews into **Positive**, **Neutral**, or **Negative** sentiment using a fine-tuned DistilBERT transformer model.
+## Overview
+
+The goal of this project is to build a practical NLP application that understands the context of customer reviews and predicts sentiment accurately. It uses transfer learning with a transformer-based architecture to achieve strong performance while keeping inference efficient.
 
 ## Tech Stack
-- **Model:** DistilBERT (HuggingFace Transformers)
-- **Framework:** PyTorch
-- **Dataset:** Flipkart Product Reviews (~205k rows)
 
-##  Key Features
-- Transfer learning with DistilBERT fine-tuning
-- fp16 mixed precision training (2x faster)
-- Random oversampling for class imbalance
-- Real-time inference with confidence scoring
+* Model: DistilBERT (HuggingFace Transformers)
+* Framework: PyTorch
+* Dataset: Flipkart Product Reviews (~205k rows)
+* Frontend: Streamlit (for real-time interaction)
 
-##  Results
-| Metric | Score |
-|--------|-------|
-| Train Accuracy | 94.72% |
+## Key Features
+
+* Fine-tuned DistilBERT model for multi-class sentiment classification
+* Handles class imbalance using random oversampling
+* Uses mixed precision training to improve training speed
+* Provides real-time predictions with confidence scores
+* Converts sentiment output into a star rating format
+
+## Results
+
+| Metric              | Score  |
+| ------------------- | ------ |
+| Train Accuracy      | 94.72% |
 | Validation Accuracy | 96.27% |
-| Epochs | 2 |
+| Epochs              | 2      |
 
-##  Usage
+## Usage
+
 ```python
 analyzer = SentimentAnalyzer(model, tokenizer, label_encoder)
 sentiment, rating, confidence = analyzer.predict_sentiment("Great product!")
-# Output → Positive  | Rating: [■■■■■] 5/5 | Confidence: 97.2%
 ```
 
-##  Project Structure
+The model returns the predicted sentiment along with a confidence score and an equivalent rating.
+
+## Running the Project
+
+1. Install dependencies
+
 ```
-├── sentiment_analyzer.py   # Main training script
-├── best_bert_sentiment.pt  # Saved model weights
-├── label_encoder.pkl       # Label encoder
-├── distilbert_tokenizer/   # Saved tokenizer
-├── confusion_matrix.png    # Evaluation plot
-└── training_curves.png     # Loss/Accuracy curves
+pip install -r requirements.txt
 ```
+
+2. Run the Streamlit application
+
+```
+streamlit run app.py
+```
+
+## Project Structure
+
+```
+sentiment/
+├── app.py
+├── sentiment_analysis.py
+├── artifacts/
+│   ├── best_bert_sentiment.pt
+│   ├── label_encoder.pkl
+│   ├── distilbert_tokenizer/
+├── flipkart_product_copy.csv
+├── requirements.txt
+```
+
+## Limitations
+
+* Performance may drop on sarcastic or ambiguous reviews
+* Mixed sentiment in a single input can affect predictions
+* Model quality depends on dataset balance and preprocessing
+
+## Future Improvements
+
+* Improve robustness with better data preprocessing
+* Tune hyperparameters for higher accuracy
+* Optimize model for faster inference and deployment
