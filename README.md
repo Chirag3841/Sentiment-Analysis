@@ -10,7 +10,7 @@ The goal of this project is to build a practical NLP application that understand
 
 * Model: DistilBERT (HuggingFace Transformers)
 * Framework: PyTorch
-* Dataset: Flipkart Product Reviews (~205k rows)
+* Dataset: Flipkart Product Reviews (~200k rows)
 * Frontend: Streamlit (for real-time interaction)
 
 ## Key Features
@@ -37,6 +37,8 @@ sentiment, rating, confidence = analyzer.predict_sentiment("Great product!")
 ```
 
 The model returns the predicted sentiment along with a confidence score and an equivalent rating.
+Link for best_bert_sentiment.pt
+-https://drive.google.com/file/d/1jORjSuKFrf-O18r-Op1rSxr36n5om1eH/view?usp=sharing
 
 ## Running the Project
 
