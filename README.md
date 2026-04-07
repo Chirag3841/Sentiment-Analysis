@@ -1,6 +1,6 @@
 # Flipkart Review Sentiment Analyzer
 
-This project implements a sentiment analysis system using a fine-tuned DistilBERT model trained on more than 200,000 Flipkart product reviews. The model classifies reviews into three categories: Positive, Neutral, and Negative.
+This project implements a sentiment analysis system using a fine-tuned DistilBERT model trained on more than 205,000 Flipkart product reviews. The model classifies reviews into three categories: Positive, Neutral, and Negative.
 
 ## Overview
 
@@ -10,7 +10,7 @@ The goal of this project is to build a practical NLP application that understand
 
 * Model: DistilBERT (HuggingFace Transformers)
 * Framework: PyTorch
-* Dataset: Flipkart Product Reviews (~200k rows)
+* Dataset: Flipkart Product Reviews (~205k rows)
 * Frontend: Streamlit (for real-time interaction)
 
 ## Key Features
