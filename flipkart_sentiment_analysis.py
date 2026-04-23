@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Sentiment_Analysis - A comprehensive sentiment analysis pipeline using DistilBERT on Flipkart product reviews."""
 
 import os
@@ -239,19 +238,29 @@ class SentimentAnalyzer:
 
     @torch.no_grad()
     def predict_sentiment(self, text):
-        text     = clean_text(text)
+        text = clean_text(text)
+
+        if "but" in text:
+            text = text.split("but")[-1].strip()
+
         encoding = self.tokenizer(
             text, max_length=MAX_LEN,
             padding='max_length', truncation=True, return_tensors='pt'
         )
-        input_ids      = encoding['input_ids'].to(DEVICE)
+
+        input_ids = encoding['input_ids'].to(DEVICE)
         attention_mask = encoding['attention_mask'].to(DEVICE)
-        outputs        = self.model(input_ids=input_ids, attention_mask=attention_mask)
-        probs          = torch.softmax(outputs.logits, dim=1).cpu().numpy()[0]
-        pred_idx       = np.argmax(probs)
-        prediction     = self.label_encoder.inverse_transform([pred_idx])[0]
-        confidence     = float(probs[pred_idx]) * 100
-        rating         = 1 if prediction == 'Negative' else 3 if prediction == 'Neutral' else 5
+
+        outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
+
+        probs = torch.softmax(outputs.logits / 1.5, dim=1).cpu().numpy()[0]
+
+        pred_idx   = np.argmax(probs)
+        prediction = self.label_encoder.inverse_transform([pred_idx])[0]
+        confidence = float(probs[pred_idx]) * 100
+
+        rating = 1 if prediction == 'Negative' else 3 if prediction == 'Neutral' else 5
+
         return prediction, rating, confidence
 
 analyzer = SentimentAnalyzer(model, tokenizer, label_encoder)
