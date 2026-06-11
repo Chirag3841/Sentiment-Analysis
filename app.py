@@ -1,4 +1,5 @@
-import re
+
+    import re
 import os
 import joblib
 import numpy as np
@@ -452,9 +453,12 @@ def assign_weights(clauses: List[Tuple[str, str]]) -> List[Tuple[str, str, float
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MODEL LOADING
-# ── FIX: weights_only=False added to torch.load to support PyTorch >= 2.6
-#    (default changed from False → True in 2.6, breaking .pt files saved
-#     with older versions that include non-tensor pickle objects)
+# ── MODEL LOADING
+# ── Strategy (in priority order):
+#    1. Local artifacts/best_bert_sentiment.pt  (dev / local run)
+#    2. Hugging Face Hub download               (Streamlit Cloud deployment)
+#       Set HF_REPO in your Streamlit secrets or as an env var:
+#           HF_REPO = "your-hf-username/sentimentiq"
 # ══════════════════════════════════════════════════════════════════════════════
 @st.cache_resource(show_spinner=False)
 def load_artifacts():
@@ -474,13 +478,41 @@ def load_artifacts():
         MODEL_NAME, num_labels=num_classes
     )
 
-    trained = os.path.exists(MODEL_PATH)
-    if trained:
-        # ── weights_only=False: required for PyTorch >= 2.6 compatibility
-        #    with model weights saved by older PyTorch versions.
-        #    Safe because this is our own trained model artifact.
-        state_dict = torch.load(MODEL_PATH, map_location=DEVICE, weights_only=False)
-        model.load_state_dict(state_dict)
+    # ── Resolve the .pt file: local first, then Hugging Face Hub ─────────────
+    pt_path = None
+    trained = False
+
+    if os.path.exists(MODEL_PATH):
+        # Local path works (dev machine or artifact committed via Git LFS)
+        pt_path = MODEL_PATH
+    else:
+        # Streamlit Cloud: download from Hugging Face Hub at runtime.
+        # Set HF_REPO secret in Streamlit Cloud dashboard → App settings → Secrets:
+        #   HF_REPO = "your-hf-username/sentimentiq"
+        hf_repo = os.environ.get("HF_REPO", "")
+        if hf_repo:
+            try:
+                from huggingface_hub import hf_hub_download
+                pt_path = hf_hub_download(
+                    repo_id=hf_repo,
+                    filename="best_bert_sentiment.pt",
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    f"Could not download model from Hugging Face Hub "
+                    f"(repo='{hf_repo}'): {e}"
+                )
+        else:
+            raise FileNotFoundError(
+                "Model weights not found locally and HF_REPO env var is not set. "
+                "Either place artifacts/best_bert_sentiment.pt next to app.py, "
+                "or set HF_REPO=your-username/your-repo in Streamlit secrets."
+            )
+
+    # ── Load weights — weights_only=False for PyTorch >= 2.6 compatibility ───
+    state_dict = torch.load(pt_path, map_location=DEVICE, weights_only=False)
+    model.load_state_dict(state_dict)
+    trained = True
 
     model.to(DEVICE).eval()
     return tokenizer, model, label_encoder, trained
