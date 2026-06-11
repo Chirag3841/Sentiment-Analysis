@@ -106,7 +106,7 @@ section[data-testid="stSidebar"] {
     transform:    translateX(0)    !important;
     margin-left:  0                !important;
     display:      flex             !important;
-    overflow:     hidden           !important;  /* KEY: clips icon text bleed */
+    overflow:     hidden           !important;
 }
 section[data-testid="stSidebar"] > div:first-child {
     min-width:   var(--sidebar-w) !important;
@@ -452,10 +452,15 @@ def assign_weights(clauses: List[Tuple[str, str]]) -> List[Tuple[str, str, float
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MODEL LOADING
+# ── FIX: weights_only=False added to torch.load to support PyTorch >= 2.6
+#    (default changed from False → True in 2.6, breaking .pt files saved
+#     with older versions that include non-tensor pickle objects)
 # ══════════════════════════════════════════════════════════════════════════════
 @st.cache_resource(show_spinner=False)
 def load_artifacts():
-    tokenizer = AutoTokenizer.from_pretrained(TOK_PATH if os.path.isdir(TOK_PATH) else MODEL_NAME)
+    tok_path = TOK_PATH if os.path.isdir(TOK_PATH) else MODEL_NAME
+    tokenizer = AutoTokenizer.from_pretrained(tok_path)
+
     if os.path.exists(ENC_PATH):
         label_encoder = joblib.load(ENC_PATH)
         num_classes   = len(label_encoder.classes_)
@@ -464,10 +469,19 @@ def load_artifacts():
         label_encoder = LabelEncoder()
         label_encoder.classes_ = np.array(["Negative", "Neutral", "Positive"])
         num_classes = 3
-    model   = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=num_classes)
+
+    model = AutoModelForSequenceClassification.from_pretrained(
+        MODEL_NAME, num_labels=num_classes
+    )
+
     trained = os.path.exists(MODEL_PATH)
     if trained:
-        model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+        # ── weights_only=False: required for PyTorch >= 2.6 compatibility
+        #    with model weights saved by older PyTorch versions.
+        #    Safe because this is our own trained model artifact.
+        state_dict = torch.load(MODEL_PATH, map_location=DEVICE, weights_only=False)
+        model.load_state_dict(state_dict)
+
     model.to(DEVICE).eval()
     return tokenizer, model, label_encoder, trained
 
@@ -558,6 +572,7 @@ def predict_detailed(text, tokenizer, model, label_encoder):
 
     return sentiment, rating, confidence, blended, results, True, ""
 
+
 @torch.no_grad()
 def predict_batch(texts, tokenizer, model, label_encoder, batch_size=64):
     results = []
@@ -611,6 +626,8 @@ def predict_batch(texts, tokenizer, model, label_encoder, batch_size=64):
             })
 
     return results
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # SESSION STATE INIT
 # ══════════════════════════════════════════════════════════════════════════════
@@ -762,7 +779,7 @@ if page == "Live Inference":
                 st.session_state.last_invalid = None
                 st.session_state.last_result  = {
                     "sentiment":      sentiment,
-                    "rating":         rating,          # guaranteed 1, 3, or 5
+                    "rating":         rating,
                     "conf":           conf,
                     "blended_probs":  blended_probs.tolist(),
                     "clause_results": [
@@ -821,14 +838,13 @@ if page == "Live Inference":
         elif res:
             classes   = list(label_encoder.classes_)
             sentiment = res["sentiment"]
-            rating    = res["rating"]      # guaranteed 1, 3, or 5
+            rating    = res["rating"]
             conf      = res["conf"]
             bp        = np.array(res["blended_probs"])
             cr_list   = res["clause_results"]
             c         = sentiment.lower()[:3]
             emo       = {"Positive":"😊","Neutral":"😐","Negative":"😞"}.get(sentiment,"")
 
-            # ── Dot-based stars: 100% immune to font glyph rendering bugs ────
             star_html = make_star_dots(rating, total=5)
 
             def gp(cls):
