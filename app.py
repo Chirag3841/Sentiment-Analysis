@@ -452,69 +452,77 @@ def assign_weights(clauses: List[Tuple[str, str]]) -> List[Tuple[str, str, float
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MODEL LOADING
-# ── MODEL LOADING
-# ── Strategy (in priority order):
-#    1. Local artifacts/best_bert_sentiment.pt  (dev / local run)
-#    2. Hugging Face Hub download               (Streamlit Cloud deployment)
-#       Set HF_REPO in your Streamlit secrets or as an env var:
-#           HF_REPO = "your-hf-username/sentimentiq"
+# ── Strategy: Local files first, then Hugging Face Hub (Streamlit Cloud)
+#    Set HF_REPO in Streamlit secrets: HF_REPO = "Chirag238/sentimentiq"
 # ══════════════════════════════════════════════════════════════════════════════
 @st.cache_resource(show_spinner=False)
 def load_artifacts():
-    tok_path = TOK_PATH if os.path.isdir(TOK_PATH) else MODEL_NAME
-    tokenizer = AutoTokenizer.from_pretrained(tok_path)
+    from huggingface_hub import hf_hub_download
+    from sklearn.preprocessing import LabelEncoder
 
+    hf_repo = os.environ.get("HF_REPO", "")
+
+    # ── Tokenizer ─────────────────────────────────────────────────────────────
+    if os.path.isdir(TOK_PATH):
+        tokenizer = AutoTokenizer.from_pretrained(TOK_PATH)
+    elif hf_repo:
+        try:
+            tok_file = hf_hub_download(repo_id=hf_repo, filename="tokenizer_config.json")
+            tok_dir  = os.path.dirname(tok_file)
+            tokenizer = AutoTokenizer.from_pretrained(tok_dir)
+        except Exception:
+            tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+
+    # ── Label Encoder ─────────────────────────────────────────────────────────
     if os.path.exists(ENC_PATH):
         label_encoder = joblib.load(ENC_PATH)
         num_classes   = len(label_encoder.classes_)
+    elif hf_repo:
+        try:
+            enc_path      = hf_hub_download(repo_id=hf_repo, filename="label_encoder.pkl")
+            label_encoder = joblib.load(enc_path)
+            num_classes   = len(label_encoder.classes_)
+        except Exception:
+            label_encoder = LabelEncoder()
+            label_encoder.classes_ = np.array(["Negative", "Neutral", "Positive"])
+            num_classes = 3
     else:
-        from sklearn.preprocessing import LabelEncoder
         label_encoder = LabelEncoder()
         label_encoder.classes_ = np.array(["Negative", "Neutral", "Positive"])
         num_classes = 3
 
+    # ── Model architecture ────────────────────────────────────────────────────
     model = AutoModelForSequenceClassification.from_pretrained(
         MODEL_NAME, num_labels=num_classes
     )
 
-    # ── Resolve the .pt file: local first, then Hugging Face Hub ─────────────
-    pt_path = None
-    trained = False
-
+    # ── Model weights (.pt) ───────────────────────────────────────────────────
     if os.path.exists(MODEL_PATH):
-        # Local path works (dev machine or artifact committed via Git LFS)
         pt_path = MODEL_PATH
-    else:
-        # Streamlit Cloud: download from Hugging Face Hub at runtime.
-        # Set HF_REPO secret in Streamlit Cloud dashboard → App settings → Secrets:
-        #   HF_REPO = "your-hf-username/sentimentiq"
-        hf_repo = os.environ.get("HF_REPO", "")
-        if hf_repo:
-            try:
-                from huggingface_hub import hf_hub_download
-                pt_path = hf_hub_download(
-                    repo_id=hf_repo,
-                    filename="best_bert_sentiment.pt",
-                )
-            except Exception as e:
-                raise RuntimeError(
-                    f"Could not download model from Hugging Face Hub "
-                    f"(repo='{hf_repo}'): {e}"
-                )
-        else:
-            raise FileNotFoundError(
-                "Model weights not found locally and HF_REPO env var is not set. "
-                "Either place artifacts/best_bert_sentiment.pt next to app.py, "
-                "or set HF_REPO=your-username/your-repo in Streamlit secrets."
+    elif hf_repo:
+        try:
+            pt_path = hf_hub_download(
+                repo_id=hf_repo,
+                filename="best_bert_sentiment.pt",
             )
+        except Exception as e:
+            raise RuntimeError(
+                f"Could not download model weights from HF Hub "
+                f"(repo='{hf_repo}'): {e}"
+            )
+    else:
+        raise FileNotFoundError(
+            "Model weights not found. Set HF_REPO in Streamlit secrets."
+        )
 
     # ── Load weights — weights_only=False for PyTorch >= 2.6 compatibility ───
     state_dict = torch.load(pt_path, map_location=DEVICE, weights_only=False)
     model.load_state_dict(state_dict)
-    trained = True
 
     model.to(DEVICE).eval()
-    return tokenizer, model, label_encoder, trained
+    return tokenizer, model, label_encoder, True
 
 
 # ══════════════════════════════════════════════════════════════════════════════
